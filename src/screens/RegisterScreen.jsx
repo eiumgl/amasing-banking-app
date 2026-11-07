@@ -3,6 +3,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import {
+  Alert,
   Image,
   KeyboardAvoidingView,
   Platform,
@@ -20,9 +21,55 @@ export default function RegisterScreen() {
   const [phoneNumber, setPhoneNumber] = useState("");
   const [pin, setPin] = useState("");
   const [showPin, setShowPin] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  const handleSave = () => {
-    router.push("/otp");
+  const handleSave = async () => {
+    const trimmedPhoneNumber = phoneNumber.trim();
+    if (!trimmedPhoneNumber) {
+      Alert.alert("Registration", "Enter your phone number.");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const response = await fetch(
+        "https://6aeade2fee39618d7bf77400.mockapi.io/api/v1/users",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ phoneNumber: trimmedPhoneNumber }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Registration failed (${response.status}).`);
+      }
+
+      const createdUser = await response.json();
+      if (!createdUser?.id) {
+        throw new Error(
+          "Registration succeeded but the API returned no user ID."
+        );
+      }
+
+      router.push({
+        pathname: "/otp",
+        params: {
+          userId: String(createdUser.id),
+          phoneNumber: trimmedPhoneNumber,
+        },
+      });
+    } catch (err) {
+      Alert.alert(
+        "Registration",
+        err instanceof TypeError
+          ? "Could not connect to the API. Check your internet connection; on web, the API may also need to allow this app's origin."
+          : err.message || "Could not register. Please try again."
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -86,8 +133,9 @@ export default function RegisterScreen() {
               </View>
 
               <TouchableOpacity
-                style={styles.registerButton}
+                style={[styles.registerButton, loading && styles.disabledButton]}
                 onPress={handleSave}
+                disabled={loading}
                 activeOpacity={0.8}
               >
                 <Text style={styles.registerButtonText}>Register</Text>
@@ -177,6 +225,7 @@ const styles = StyleSheet.create({
     marginBottom: 15,
     marginTop: 5,
   },
+  disabledButton: { opacity: 0.7 },
   registerButtonText: {
     color: "white",
     fontWeight: "bold",

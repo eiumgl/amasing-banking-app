@@ -1,7 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { useState } from "react";
 import {
+  Alert,
   Image,
   KeyboardAvoidingView,
   Platform,
@@ -16,11 +17,31 @@ import GradientBackground from "../components/GradientBackground";
 
 export default function OTPScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams();
+  const userId = Array.isArray(params.userId) ? params.userId[0] : params.userId;
+  const phoneNumber = Array.isArray(params.phoneNumber)
+    ? params.phoneNumber[0]
+    : params.phoneNumber;
   const [otp, setOtp] = useState("");
 
   const handleVerify = () => {
-    console.log({ otp });
-    router.replace("/");
+    if (!/^\d{6}$/.test(otp)) {
+      Alert.alert("Verification", "Enter a 6-digit demo code.");
+      return;
+    }
+
+    if (!userId || !phoneNumber) {
+      Alert.alert(
+        "Verification",
+        "Registration details are missing. Please register again."
+      );
+      return;
+    }
+
+    router.push({
+      pathname: "/complete-profile",
+      params: { userId, phoneNumber },
+    });
   };
 
   return (
@@ -74,7 +95,7 @@ export default function OTPScreen() {
               onPress={() => router.back()}
             >
               <Text style={styles.footerText}>
-                Didn't receive code?{" "}
+                Didn&apos;t receive code?{" "}
                 <Text style={styles.footerTextlink}>Go Back</Text>
               </Text>
             </TouchableOpacity>

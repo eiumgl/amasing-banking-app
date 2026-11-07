@@ -1,11 +1,12 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
-  ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -16,57 +17,50 @@ import {
 } from "react-native";
 
 import BottomNav from "../components/BottomNav";
-// Import the update API from your data folder
-import { updateMpinAPI } from "../data/mockApi";
+import { getProfile } from "../services/profileApi";
+
+const emptyProfile = {
+  name: "User",
+  email: "user@example.com",
+  phone: "",
+  address: "",
+};
 
 export default function ProfileScreen() {
   const router = useRouter();
+  const [profile, setProfile] = useState(emptyProfile);
+  const [draft, setDraft] = useState(emptyProfile);
+  const [isEditorVisible, setEditorVisible] = useState(false);
 
-  // --- NEW STATE FOR SECURITY MODAL ---
-  const [isSecurityVisible, setIsSecurityVisible] = useState(false);
-  const [currentMpin, setCurrentMpin] = useState("");
-  const [newMpin, setNewMpin] = useState("");
-  const [error, setError] = useState("");
-  const [successMessage, setSuccessMessage] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+  useEffect(() => {
+    let isMounted = true;
+    getProfile()
+      .then((apiProfile) => {
+        if (!isMounted) return;
+        setProfile({
+          name: apiProfile.name ?? emptyProfile.name,
+          email: apiProfile.email ?? emptyProfile.email,
+          phone: apiProfile.phone ?? emptyProfile.phone,
+          address: apiProfile.address ?? emptyProfile.address,
+        });
+      })
+      .catch((error) => {
+        if (isMounted) Alert.alert("Unable to load profile", error.message);
+      });
 
-  // --- NEW HANDLER FOR UPDATING MPIN ---
-  const handleUpdateMpin = async () => {
-    setError("");
-    setSuccessMessage("");
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
-    if (currentMpin.length < 6 || newMpin.length < 6) {
-      setError("Both MPINs must be exactly 6 digits.");
-      return;
-    }
-
-    setIsLoading(true);
-
-    try {
-      const response = await updateMpinAPI(currentMpin, newMpin);
-      setSuccessMessage(response.message);
-      setCurrentMpin("");
-      setNewMpin("");
-      
-      // Optional: Auto-close the modal after 2 seconds on success
-      setTimeout(() => {
-        setIsSecurityVisible(false);
-        setSuccessMessage("");
-      }, 2000);
-      
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setIsLoading(false);
-    }
+  const openEditor = () => {
+    setDraft(profile);
+    setEditorVisible(true);
   };
 
-  const openSecuritySettings = () => {
-    setCurrentMpin("");
-    setNewMpin("");
-    setError("");
-    setSuccessMessage("");
-    setIsSecurityVisible(true);
+  const saveProfile = () => {
+    setProfile(draft);
+    setEditorVisible(false);
   };
 
   return (
@@ -91,8 +85,8 @@ export default function ProfileScreen() {
             <View style={styles.avatar}>
               <Ionicons name="person" size={45} color="forestgreen" />
             </View>
-            <Text style={styles.name}>User</Text>
-            <Text style={styles.email}>user@example.com</Text>
+            <Text style={styles.name}>{profile.name}</Text>
+            <Text style={styles.email}>{profile.email}</Text>
             <View style={styles.memberBadge}>
               <Text style={styles.memberText}>Basic Account</Text>
             </View>
@@ -101,12 +95,7 @@ export default function ProfileScreen() {
           {/* ACCOUNT SETTINGS */}
           <View style={styles.card}>
             <Text style={styles.sectionTitle}>Account Settings</Text>
-            <TouchableOpacity
-              style={styles.option}
-              onPress={() =>
-                Alert.alert("Personal Information", "Settings coming soon.")
-              }
-            >
+            <TouchableOpacity style={styles.option} onPress={openEditor}>
               <View style={styles.optionIcon}>
                 <Ionicons name="person-outline" size={22} color="forestgreen" />
               </View>
@@ -118,11 +107,9 @@ export default function ProfileScreen() {
               </View>
               <Ionicons name="chevron-forward" size={20} color="gray" />
             </TouchableOpacity>
-            
-            {/* UPDATED SECURITY BUTTON */}
             <TouchableOpacity
-              style={[styles.option, { borderBottomWidth: 0 }]} // Removed bottom border for last item
-              onPress={openSecuritySettings}
+              style={styles.option}
+              onPress={() => Alert.alert("Security", "Settings coming soon.")}
             >
               <View style={styles.optionIcon}>
                 <Ionicons
@@ -142,78 +129,80 @@ export default function ProfileScreen() {
           </View>
         </ScrollView>
 
+        <Modal
+          visible={isEditorVisible}
+          animationType="slide"
+          transparent
+          onRequestClose={() => setEditorVisible(false)}
+        >
+          <KeyboardAvoidingView
+            behavior={Platform.OS === "ios" ? "padding" : undefined}
+            style={styles.modalBackdrop}
+          >
+            <View style={styles.editor}>
+              <Text style={styles.editorTitle}>Personal Information</Text>
+              <ScrollView keyboardShouldPersistTaps="handled">
+                <Text style={styles.fieldLabel}>Full name</Text>
+                <TextInput
+                  style={styles.fieldInput}
+                  value={draft.name}
+                  onChangeText={(name) => setDraft({ ...draft, name })}
+                  autoCapitalize="words"
+                  placeholder="Full name"
+                />
+                <Text style={styles.fieldLabel}>Email</Text>
+                <TextInput
+                  style={styles.fieldInput}
+                  value={draft.email}
+                  onChangeText={(email) => setDraft({ ...draft, email })}
+                  autoCapitalize="none"
+                  keyboardType="email-address"
+                  placeholder="Email address"
+                />
+                <Text style={styles.fieldLabel}>Phone</Text>
+                <TextInput
+                  style={styles.fieldInput}
+                  value={draft.phone}
+                  onChangeText={(phone) => setDraft({ ...draft, phone })}
+                  keyboardType="phone-pad"
+                  placeholder="Phone number"
+                />
+                <Text style={styles.fieldLabel}>Address</Text>
+                <TextInput
+                  style={[styles.fieldInput, styles.addressInput]}
+                  value={draft.address}
+                  onChangeText={(address) => setDraft({ ...draft, address })}
+                  multiline
+                  placeholder="Address"
+                />
+              </ScrollView>
+              <View style={styles.editorActions}>
+                <TouchableOpacity
+                  style={styles.cancelButton}
+                  onPress={() => setEditorVisible(false)}
+                >
+                  <Text style={styles.cancelButtonText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.saveButton}
+                  onPress={saveProfile}
+                >
+                  <Text style={styles.saveButtonText}>Save changes</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </KeyboardAvoidingView>
+        </Modal>
+
         {/* BOTTOM NAVIGATION */}
         <BottomNav
-          active="profile"
+          active="home"
           onHome={() => router.replace("/home")}
           onTransactions={() => router.replace("/transactions")}
           onProfile={() => router.replace("/profile")}
           onLogout={() => router.replace("/")}
         />
       </SafeAreaView>
-
-      {/* --- NEW SECURITY MODAL --- */}
-      <Modal
-        visible={isSecurityVisible}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setIsSecurityVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Update MPIN</Text>
-              <TouchableOpacity onPress={() => setIsSecurityVisible(false)}>
-                <Ionicons name="close" size={24} color="dimgray" />
-              </TouchableOpacity>
-            </View>
-
-            <Text style={styles.modalLabel}>Current MPIN</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Enter current 6-digit MPIN"
-              secureTextEntry
-              keyboardType="numeric"
-              maxLength={6}
-              value={currentMpin}
-              onChangeText={(text) => {
-                setCurrentMpin(text.replace(/[^0-9]/g, ''));
-                setError("");
-              }}
-            />
-
-            <Text style={styles.modalLabel}>New MPIN</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Enter new 6-digit MPIN"
-              secureTextEntry
-              keyboardType="numeric"
-              maxLength={6}
-              value={newMpin}
-              onChangeText={(text) => {
-                setNewMpin(text.replace(/[^0-9]/g, ''));
-                setError("");
-              }}
-            />
-
-            {error !== "" && <Text style={styles.errorText}>{error}</Text>}
-            {successMessage !== "" && <Text style={styles.successText}>{successMessage}</Text>}
-
-            <TouchableOpacity 
-              style={styles.updateButton} 
-              onPress={handleUpdateMpin}
-              disabled={isLoading}
-            >
-              {isLoading ? (
-                <ActivityIndicator color="white" />
-              ) : (
-                <Text style={styles.updateButtonText}>Save MPIN</Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
     </LinearGradient>
   );
 }
@@ -290,79 +279,57 @@ const styles = StyleSheet.create({
   optionInfo: { flex: 1 },
   optionText: { fontSize: 14, fontWeight: "bold", color: "black" },
   optionDescription: { fontSize: 11, color: "gray", marginTop: 3 },
-
-  /* --- NEW STYLES FOR THE MODAL --- */
-  modalOverlay: {
+  modalBackdrop: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
     justifyContent: "flex-end",
+    backgroundColor: "rgba(0, 0, 0, 0.55)",
   },
-  modalContent: {
+  editor: {
+    maxHeight: "90%",
     backgroundColor: "white",
-    borderTopLeftRadius: 25,
-    borderTopRightRadius: 25,
-    padding: 25,
-    paddingBottom: 40,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 10,
-    elevation: 10,
+    borderTopLeftRadius: 18,
+    borderTopRightRadius: 18,
+    padding: 22,
+    paddingBottom: 30,
   },
-  modalHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 20,
-  },
-  modalTitle: {
-    fontSize: 20,
+  editorTitle: {
+    fontSize: 19,
     fontWeight: "bold",
     color: "black",
+    marginBottom: 18,
   },
-  modalLabel: {
-    fontSize: 13,
-    fontWeight: "bold",
+  fieldLabel: {
     color: "dimgray",
-    marginBottom: 8,
-    marginTop: 10,
+    fontSize: 12,
+    fontWeight: "bold",
+    marginBottom: 6,
   },
-  input: {
-    backgroundColor: "whitesmoke",
+  fieldInput: {
     borderWidth: 1,
     borderColor: "lightgray",
-    borderRadius: 10,
-    padding: 15,
-    fontSize: 16,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 11,
     color: "black",
-    marginBottom: 10,
-    letterSpacing: 2,
+    marginBottom: 14,
   },
-  updateButton: {
-    backgroundColor: "forestgreen",
-    borderRadius: 10,
-    paddingVertical: 15,
+  addressInput: { minHeight: 72, textAlignVertical: "top" },
+  editorActions: { flexDirection: "row", gap: 10, marginTop: 4 },
+  cancelButton: {
+    flex: 1,
     alignItems: "center",
-    marginTop: 20,
-    height: 50,
-    justifyContent: "center",
+    paddingVertical: 13,
+    borderWidth: 1,
+    borderColor: "lightgray",
+    borderRadius: 8,
   },
-  updateButtonText: {
-    color: "white",
-    fontWeight: "bold",
-    fontSize: 16,
+  cancelButtonText: { color: "dimgray", fontWeight: "bold" },
+  saveButton: {
+    flex: 1,
+    alignItems: "center",
+    paddingVertical: 13,
+    backgroundColor: "forestgreen",
+    borderRadius: 8,
   },
-  errorText: {
-    color: "red",
-    fontSize: 13,
-    marginTop: 5,
-    textAlign: "center",
-  },
-  successText: {
-    color: "forestgreen",
-    fontSize: 14,
-    fontWeight: "bold",
-    marginTop: 5,
-    textAlign: "center",
-  },
+  saveButtonText: { color: "white", fontWeight: "bold" },
 });

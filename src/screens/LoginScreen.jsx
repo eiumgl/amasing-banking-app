@@ -1,31 +1,30 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { useState } from "react";
 import {
-  ActivityIndicator,
-  Image,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    Image,
+    KeyboardAvoidingView,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from "react-native";
-
-// Import your mock API from the data folder
-import { verifyMpinAPI } from '../data/mockApi';
 
 export default function LoginScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams();
+  const registeredPhoneNumber =
+    typeof params.phoneNumber === "string" ? params.phoneNumber : "";
 
   // State
   const [mpin, setMpin] = useState("");
   const [error, setError] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
 
-  const demoPhoneNumber = "0917 123 4567";
+  const demoPhoneNumber = registeredPhoneNumber || "0917 123 4567";
+  const correctMPIN = "123456";
 
   const handleNumberPress = (number) => {
     if (mpin.length < 6) {
@@ -39,24 +38,18 @@ export default function LoginScreen() {
     setError("");
   };
 
-  const handleLogin = async () => {
+  const handleLogin = () => {
     if (mpin.length < 6) {
       setError("Please enter your 6-digit MPIN.");
       return;
     }
 
-    setIsLoading(true);
-    setError("");
-
-    try {
-      // Call the mock API imported at the top of the file
-      const responseData = await verifyMpinAPI(mpin);
+    if (mpin === correctMPIN) {
+      setError("");
       router.replace("/home");
-    } catch (err) {
-      setError(err.message);
+    } else {
+      setError("Incorrect MPIN. Please try again.");
       setMpin("");
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -129,7 +122,6 @@ export default function LoginScreen() {
                           style={styles.numberButton}
                           onPress={handleBackspace}
                           activeOpacity={0.7}
-                          disabled={isLoading}
                         >
                           <Ionicons
                             name="backspace-outline"
@@ -145,7 +137,6 @@ export default function LoginScreen() {
                         style={styles.numberButton}
                         onPress={() => handleNumberPress(key)}
                         activeOpacity={0.7}
-                        disabled={isLoading}
                       >
                         <Text style={styles.numberText}>{key}</Text>
                       </TouchableOpacity>
@@ -155,18 +146,13 @@ export default function LoginScreen() {
               ))}
             </View>
 
-            {/* LOGIN BUTTON WITH SPINNER */}
+            {/* LOGIN BUTTON */}
             <TouchableOpacity
               style={styles.actionButton}
               onPress={handleLogin}
               activeOpacity={0.8}
-              disabled={isLoading}
             >
-              {isLoading ? (
-                <ActivityIndicator color="white" />
-              ) : (
-                <Text style={styles.actionButtonText}>Login</Text>
-              )}
+              <Text style={styles.actionButtonText}>Login</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
