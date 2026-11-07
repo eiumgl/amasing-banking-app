@@ -1,6 +1,8 @@
 # Welcome to our Expo App! 👋
 
 This is an Banking App named Amasing Banking App by Group 1.
+Here is a website version - **http://splendorous-bienenstitch-765999.netlify.app/**
+
 
 ## 👥 Team Members & Contributors
 - **Alburo, Jeffrey C.** - Contributor
